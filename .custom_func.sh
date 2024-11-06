@@ -2,21 +2,6 @@
 ##########      custom functions    ##############
 ##################################################
 
-cls() {
-	clear && ls;
-}
-
-clcd() {
-	clear && cd && ls
-}
-
-lcd() {
-	cd $1 && ls
-}
-
-mcd() {
-	mkdir $1 && cd $1
-}
 
 cf() {
     # Use the first argument as the path, or default to the home directory if no argument is given
