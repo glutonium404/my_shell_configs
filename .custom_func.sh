@@ -2,6 +2,14 @@
 ##########      custom functions    ##############
 ##################################################
 
+mcd() {
+    local dir=$1
+    mkdir $dir && cd $dir
+}
+
+cd() {
+    builtin cd $1 && ls
+}
 
 cf() {
     # Use the first argument as the path, or default to the home directory if no argument is given
