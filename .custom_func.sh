@@ -58,7 +58,7 @@ function nvimd {
         return 1
     fi
 
-    echo $(find $lookup_path -type d -name $dir_name | fzf)
+    nvim $(find $lookup_path -type d -name $dir_name | fzf)
 }
 
 function yt {
