@@ -60,3 +60,10 @@ function nvimd {
 
     nvim $(find $dir -type d -name $2 | fzf)
 }
+
+function yt {
+    local search_query=$(echo $1 | tr " " +) # replace all white space with +
+    local url="https://www.youtube.com/results?search_query=$search_query"
+    echo $url
+    x-www-browser --url $url # opens the url in the browser
+}
