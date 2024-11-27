@@ -51,14 +51,14 @@ function parse_git_branch {
 
 function nvimd {
     local dir_name=$1
-    local lookup_path="${2:-'~/'}"
+    local lookup_path=${2:-$HOME}
 
     if [ -z "${dir_name}" ]; then
         echo "pls provide directory name"
         return 1
     fi
 
-    nvim $(find $dir -type d -name $2 | fzf)
+    echo $(find $lookup_path -type d -name $dir_name | fzf)
 }
 
 function yt {
