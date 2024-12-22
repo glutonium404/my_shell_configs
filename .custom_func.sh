@@ -25,9 +25,9 @@ cf() {
     local selected_directory
     selected_directory=$(find "$path" -type d 2>/dev/null | fzf)
 
-    # Print the selected directory (if any)
+    # Cd into the selected directory (if any)
     if [[ -n "$selected_directory" ]]; then
-        echo "$selected_directory"
+        cd "$selected_directory"
     fi
 }
 
