@@ -9,7 +9,7 @@ sudo apt upgrade
 echo "==============="
 echo "installing pkgs"
 echo "==============="
-sudo apt install tmux gh git neovim make gcc ripgrep unzip xclip curl
+sudo apt install tmux gh git neovim make gcc ripgrep unzip xclip curl fzf
 
 echo "============="
 echo "setting up gh"
