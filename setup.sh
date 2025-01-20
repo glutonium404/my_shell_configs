@@ -17,6 +17,15 @@ echo "============="
 gh auth login
 gh repo list
 
+<<<<<<< Updated upstream
+=======
+echo "=============="
+echo "setting up git"
+echo "=============="
+git config --global user.email "tahzib404@gmail.com"
+git config --global user.name "glutonium69"
+
+>>>>>>> Stashed changes
 echo "======================"
 echo "setting nvm, node, npm"
 echo "======================"
