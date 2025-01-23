@@ -40,10 +40,10 @@ function parse_git_branch {
         # Check for uncommitted changes
         if [ -n "$(git status --porcelain)" ]; then
             # Uncommitted changes detected
-	    printf "\e[0m\e[1;91m[$branch ✗]\e[0m"
+            printf "\e[0m\e[1;91m($branch)\e[0m "
         else
             # Clean working tree
-            printf "\e[0m\e[1;92m[$branch ✓]\e[0m"
+            printf "\e[0m\e[1;92m($branch)\e[0m "
         fi
     fi
 }
