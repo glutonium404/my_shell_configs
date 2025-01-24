@@ -17,15 +17,12 @@ echo "============="
 gh auth login
 gh repo list
 
-<<<<<<< Updated upstream
-=======
 echo "=============="
 echo "setting up git"
 echo "=============="
 git config --global user.email "tahzib404@gmail.com"
 git config --global user.name "glutonium69"
 
->>>>>>> Stashed changes
 echo "======================"
 echo "setting nvm, node, npm"
 echo "======================"
@@ -50,9 +47,14 @@ ln -s "$HOME/.shell_custom_config/.tmux.conf" "$HOME/.tmux.conf"
 echo '' >> "$HOME/.bashrc"
 echo 'source "$HOME/.shell_custom_config/.custom.sh"' >> "$HOME/.bashrc"
 
+echo "================================================"
+echo "setting up tmux plugin manager and other plugins"
+echo "================================================"
+git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+chmod +x ./.tmux/plugins/tpm/bin/install_plugins
+./.tmux/plugins/tpm/bin/install_plugins
 
 echo "==============="
 echo "setting up nvim"
 echo "==============="
 rm -rf "$HOME/.local/share/nvim"
-nvim
