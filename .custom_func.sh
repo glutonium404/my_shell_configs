@@ -11,27 +11,6 @@ cd() {
     builtin cd $1 && ls
 }
 
-cf() {
-    # Use the first argument as the path, or default to the home directory if no argument is given
-    local path="${1:-$HOME}"
-
-    # Check if the specified path exists and is a directory
-    if [[ ! -d "$path" ]]; then
-        echo "Path does not exist or is not a directory." >&2
-        return 1
-    fi
-
-    # Find all directories starting from the specified path and pipe them to fzf for selection
-    local selected_directory
-    selected_directory=$(find "$path" -type d 2>/dev/null | fzf)
-
-    # Cd into the selected directory (if any)
-    if [[ -n "$selected_directory" ]]; then
-        cd "$selected_directory"
-    fi
-}
-
-
 # Function to get the current Git branch and status. using it to modify the shell prompt
 function parse_git_branch {
     # Get the current branch name
@@ -66,4 +45,38 @@ function yt {
     local url="https://www.youtube.com/results?search_query=$search_query"
     echo $url
     x-www-browser --url $url # opens the url in the browser
+}
+
+function findfile {
+  local selected_file
+  selected_file=$(find ${1:-$HOME} -type f -not -regex '.*/\(node_modules\|.local\|.cache\|.git\)/.*' -printf "%P\n" | fzf)
+  if [ -n "$selected_file" ]; then
+    echo "$HOME/$selected_file"
+  fi
+}
+
+function finddir {
+  local selected_dir
+  selected_dir=$(find ${1:-$HOME} -type d -not -regex '.*/\(node_modules\|.local\|.cache\|.git\)/.*' -printf '%P\n' | fzf --preview='')
+  if [ -n "$selected_dir" ]; then
+    echo "$HOME/$selected_dir"
+  fi
+}
+
+function fat {
+    local selected_file
+    selected_file=$(findfile $1)
+
+    if [ -n $selected_file ]; then
+        bat $selected_file
+    fi
+}
+
+function cdf {
+    local selected_dir
+    selected_dir=$(finddir)
+
+    if [ -n "$selected_dir" ]; then
+        cd $selected_dir
+    fi
 }
