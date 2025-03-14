@@ -72,11 +72,19 @@ function fat {
     fi
 }
 
-function cdf {
-    local selected_dir
-    selected_dir=$(finddir)
+function cddr {
+    fdfind -t d --hidden --exclude node_modules --exclude .local --exclude .cache --exclude .git \
+        --base-directory "$HOME" > "$HOME/.local/fzf_cache/dirs.txt"
 
-    if [ -n "$selected_dir" ]; then
-        cd $selected_dir
+    fdfind -t f --hidden --exclude node_modules --exclude .local --exclude .cache --exclude .git \
+        --base-directory "$HOME" > "$HOME/.local/fzf_cache/files.txt"
+}
+
+function cdd {
+    local dir=$(cat $HOME/.local/fzf_cache/dirs.txt | fzf --preview "")
+    if [[ -n "$dir" ]]; then
+        cd "$HOME/$dir"
+    else
+        echo "No directory selected."
     fi
 }
