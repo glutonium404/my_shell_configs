@@ -73,18 +73,30 @@ function fat {
 }
 
 function cddr {
+    # try with `fd` if `fdfind` doesn't work. refer to the doc for other issues
     fdfind -t d --hidden --exclude node_modules --exclude .local --exclude .cache --exclude .git \
         --base-directory "$HOME" > "$HOME/.local/fzf_cache/dirs.txt"
-
-    fdfind -t f --hidden --exclude node_modules --exclude .local --exclude .cache --exclude .git \
-        --base-directory "$HOME" > "$HOME/.local/fzf_cache/files.txt"
 }
 
 function cdd {
-    local dir=$(cat $HOME/.local/fzf_cache/dirs.txt | fzf --preview "")
+    local dir
+    dir=$(cat "$HOME/.local/fzf_cache/dirs.txt" | fzf --preview "")
     if [[ -n "$dir" ]]; then
-        cd "$HOME/$dir"
+        cd "$HOME/$dir" || exit
     else
         echo "No directory selected."
+    fi
+}
+
+function mkdir {
+    # makes sure mkdir ran without error before appending the dir
+    if /bin/mkdir "$@" ; then
+        local curr_path
+        curr_path=$(pwd)
+
+        local dir_name
+        dir_name="$1"
+
+        echo "$curr_path/$dir_name" >> "$HOME/.local/fzf_cache/dirs.txt"
     fi
 }

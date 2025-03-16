@@ -43,9 +43,9 @@ git clone --branch edit-1 --single-branch https://github.com/glutonium69/kicksta
 echo "===================================="
 echo "enabling custom shell configs setups"
 echo "===================================="
-ln -s "$HOME/.shell_custom_config/.tmux.conf" "$HOME/.tmux.conf"
+ln -s "$HOME/.shell_custom_config/tmux.conf" "$HOME/.tmux.conf"
 echo '' >> "$HOME/.bashrc"
-echo 'source "$HOME/.shell_custom_config/.custom.sh"' >> "$HOME/.bashrc"
+echo 'source "$HOME/.shell_custom_config/custom.sh"' >> "$HOME/.bashrc"
 
 echo "================================================"
 echo "setting up tmux plugin manager and other plugins"
