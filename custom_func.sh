@@ -3,12 +3,41 @@
 ##################################################
 
 mcd() {
-    local dir=$1
-    mkdir $dir && cd $dir
+    local dir="$1"
+
+    # check if no argument is given
+    if [[ -z "$dir" ]]; then
+        echo "Usage: mcd <directory>"
+        return 1
+    fi
+
+    if mkdir "$dir"; then
+        cd "$dir"
+    fi
 }
 
 cd() {
     builtin cd $1 && ls
+}
+
+# select multiple files and delete them together
+rm() {
+    # if -m flag is passed
+    if [[ "$1" == "-m" ]]; then
+        # remove the flag from args
+        shift
+        # use fzf to select multiple files
+        local files
+        files=$(fzf -m) || return  # exit if nothing selected
+
+        # confirm and remove selected files
+        echo "Deleting:"
+        echo "$files"
+        command rm "$@" $files
+    else
+        # fallback to normal rm
+        command rm "$@"
+    fi
 }
 
 # Function to get the current Git branch and status. using it to modify the shell prompt
@@ -27,19 +56,6 @@ function parse_git_branch {
     fi
 }
 
-
-function nvimd {
-    local dir_name=$1
-    local lookup_path=${2:-$HOME}
-
-    if [ -z "${dir_name}" ]; then
-        echo "pls provide directory name"
-        return 1
-    fi
-
-    nvim $(find $lookup_path -type d -name $dir_name | fzf)
-}
-
 function yt {
     local search_query=$(echo $1 | tr " " +) # replace all white space with +
     local url="https://www.youtube.com/results?search_query=$search_query"
@@ -48,16 +64,23 @@ function yt {
 }
 
 function findfile {
-  local selected_file
-  selected_file=$(find ${1:-$HOME} -type f -not -regex '.*/\(node_modules\|.local\|.cache\|.git\)/.*' -printf "%P\n" | fzf)
-  if [ -n "$selected_file" ]; then
-    echo "$HOME/$selected_file"
-  fi
+    local selected_file
+
+    selected_file=$(find ${1:-$HOME} -type f \
+        -not -regex '.*/\(node_modules\|.local\|.cache\|.git\)/.*' -printf "%P\n" | \
+        fzf --preview='batcat --paging=never \
+        --color=always --style=numbers \
+        --line-range=:500 $HOME/{}'\
+    )
+
+    if [ -n "$selected_file" ]; then
+        echo "$HOME/$selected_file"
+    fi
 }
 
 function finddir {
   local selected_dir
-  selected_dir=$(find ${1:-$HOME} -type d -not -regex '.*/\(node_modules\|.local\|.cache\|.git\)/.*' -printf '%P\n' | fzf --preview='')
+  selected_dir=$(find ${1:-$HOME} -type d -not -regex '.*/\(node_modules\|.local\|.cache\|.git\)/.*' -printf '%P\n' | fzf)
   if [ -n "$selected_dir" ]; then
     echo "$HOME/$selected_dir"
   fi
@@ -74,13 +97,18 @@ function fat {
 
 function cddr {
     # try with `fd` if `fdfind` doesn't work. refer to the doc for other issues
-    fdfind -t d --hidden --exclude node_modules --exclude .local --exclude .cache --exclude .git \
+    fdfind -t d --hidden \
+        --exclude node_modules \
+        --exclude .local \
+        --exclude .cache \
+        --exclude .git \
         --base-directory "$HOME" > "$HOME/.local/fzf_cache/dirs.txt"
 }
 
 function cdd {
     local dir
-    dir=$(cat "$HOME/.local/fzf_cache/dirs.txt" | fzf --preview "")
+    dir=$(cat "$HOME/.local/fzf_cache/dirs.txt" | fzf)
+
     if [[ -n "$dir" ]]; then
         cd "$HOME/$dir" || exit
     else
@@ -99,4 +127,55 @@ function mkdir {
 
         echo "$curr_path/$dir_name" >> "$HOME/.local/fzf_cache/dirs.txt"
     fi
+}
+
+function gitadd {
+    local files
+    # files="$(git status -s | fzf -m | awk '{print $2}' | tr '\n' ' ')"
+    files="$(git diff --name-only | fzf -m | tr '\n' ' ')"
+
+    if [ -z "$files" ]; then
+
+        echo "Please select at least one file"
+        return
+    fi
+
+    git add $files && git status -s
+}
+
+function mdpdf {
+    local view=false
+
+    if [[ "$1" == "-v" ]]; then
+        view=true
+    fi
+
+    local file
+    file=$(fzf -m) || return
+
+    local fileNameWithoutExt="${file%.*}"
+    pandoc --pdf-engine=wkhtmltopdf "$file" -o "${fileNameWithoutExt}.pdf"
+
+    if $view; then
+        echo "Opening ${fileNameWithoutExt}.pdf..."
+        x-www-browser "${fileNameWithoutExt}.pdf"
+    fi
+}
+
+function copy {
+    local FILE="$1"
+
+    # If no file provided, show usage
+    if [[ -z "$FILE" ]]; then
+        echo "Usage: copy <file>"
+        return
+    fi
+
+    # Check if file exists
+    if [[ ! -f "$FILE" ]]; then
+        echo "File not found: $FILE"
+        return
+    fi
+
+    printf "\033]52;c;$(cat $FILE | base64)\a"
 }
