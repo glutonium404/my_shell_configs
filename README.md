@@ -1,4 +1,6 @@
-For themes. Visit [root loop](https://rootloops.sh/)
+Github link: https://github.com/glutonium404/my_shell_configs
+
+For themes. Visit [root loop](https://rootloops.sh/)  
 
 ## Setting nerd for on chromeOS
 

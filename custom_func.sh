@@ -150,8 +150,21 @@ function mdpdf {
         view=true
     fi
 
+    local md_files
+    md_files=$(fdfind -e md --max-depth 1) || return
+
+    if [[ -z "$md_files" ]]; then
+        echo "No markdown files found."
+        return
+    fi
+
+    # check if md_files contain only one file
     local file
-    file=$(fzf -m) || return
+    if [[ $(echo "$md_files" | wc -l) -eq 1 ]]; then
+        file="$md_files"
+    else
+        file=$(echo "$md_files" | fzf --prompt="Select a markdown file: ") || return
+    fi
 
     local fileNameWithoutExt="${file%.*}"
     pandoc --pdf-engine=wkhtmltopdf "$file" -o "${fileNameWithoutExt}.pdf"
@@ -178,4 +191,10 @@ function copy {
     fi
 
     printf "\033]52;c;$(cat $FILE | base64)\a"
+}
+
+function repo {
+    local repo_name=$(gh repo list | awk '{print $1}' | fzf)
+    [[ -z "$repo_name" ]] && return
+    x-www-browser --url "https://github.com/$repo_name"
 }
