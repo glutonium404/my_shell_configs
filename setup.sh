@@ -9,7 +9,7 @@ sudo apt upgrade
 echo "==============="
 echo "installing pkgs"
 echo "==============="
-sudo apt install tmux gh git neovim make gcc ripgrep unzip xclip curl fzf bat
+sudo apt install tmux gh git build-essential ripgrep unzip xclip curl fzf bat
 
 echo "============="
 echo "setting up gh"
@@ -57,4 +57,16 @@ chmod +x ./.tmux/plugins/tpm/bin/install_plugins
 echo "==============="
 echo "setting up nvim"
 echo "==============="
-rm -rf "$HOME/.local/share/nvim"
+rm -rf ~/.local/share/nvim
+rm -rf ~/.cache/nvim
+rm -rf ~/.local/state/nvim
+sudo apt remove neovim
+
+echo "==============="
+echo "installing the latest stable version of nvim"
+echo "==============="
+cd ~
+wget https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage
+chmod u+x nvim-linux-x86_64.appimage
+sudo mv nvim-linux-x86_64.appimage /usr/bin/nvim
+
