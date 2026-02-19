@@ -9,7 +9,7 @@ sudo apt upgrade
 echo "==============="
 echo "installing pkgs"
 echo "==============="
-sudo apt install tmux gh git build-essential ripgrep unzip xclip curl fzf bat
+sudo apt install tmux gh git build-essential ripgrep unzip xclip curl fzf bat fd-find
 
 echo "============="
 echo "setting up gh"
