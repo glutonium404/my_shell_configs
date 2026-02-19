@@ -41,7 +41,7 @@ rm() {
 }
 
 # Function to get the current Git branch and status. using it to modify the shell prompt
-function parse_git_branch {
+parse_git_branch() {
     # Get the current branch name
     branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
     if [ -n "$branch" ]; then
@@ -56,14 +56,14 @@ function parse_git_branch {
     fi
 }
 
-function yt {
+yt() {
     local search_query=$(echo $1 | tr " " +) # replace all white space with +
     local url="https://www.youtube.com/results?search_query=$search_query"
     echo $url
     x-www-browser --url $url # opens the url in the browser
 }
 
-function findfile {
+findfile() {
     local selected_file
 
     selected_file=$(find ${1:-$HOME} -type f \
@@ -78,7 +78,7 @@ function findfile {
     fi
 }
 
-function finddir {
+finddir() {
   local selected_dir
   selected_dir=$(find ${1:-$HOME} -type d -not -regex '.*/\(node_modules\|.local\|.cache\|.git\)/.*' -printf '%P\n' | fzf)
   if [ -n "$selected_dir" ]; then
@@ -86,7 +86,7 @@ function finddir {
   fi
 }
 
-function fat {
+fat() {
     local selected_file
     selected_file=$(findfile $1)
 
@@ -95,7 +95,7 @@ function fat {
     fi
 }
 
-function cddr {
+cddr() {
     # try with `fd` if `fdfind` doesn't work. refer to the doc for other issues
     fdfind -t d --hidden \
         --exclude node_modules \
@@ -105,7 +105,7 @@ function cddr {
         --base-directory "$HOME" > "$HOME/.local/fzf_cache/dirs.txt"
 }
 
-function cdd {
+cdd() {
     local dir
     dir=$(cat "$HOME/.local/fzf_cache/dirs.txt" | fzf)
 
@@ -116,7 +116,7 @@ function cdd {
     fi
 }
 
-function mkdir {
+mkdir() {
     # makes sure mkdir ran without error before appending the dir
     if /bin/mkdir "$@" ; then
         local curr_path
@@ -129,13 +129,12 @@ function mkdir {
     fi
 }
 
-function gitadd {
+gitadd() {
     local files
     # files="$(git status -s | fzf -m | awk '{print $2}' | tr '\n' ' ')"
     files="$(git diff --name-only | fzf -m | tr '\n' ' ')"
 
     if [ -z "$files" ]; then
-
         echo "Please select at least one file"
         return
     fi
@@ -143,7 +142,7 @@ function gitadd {
     git add $files && git status -s
 }
 
-function mdpdf {
+mdpdf() {
     local view=false
 
     if [[ "$1" == "-v" ]]; then
@@ -175,7 +174,7 @@ function mdpdf {
     fi
 }
 
-function copy {
+copy() {
     local FILE="$1"
 
     # If no file provided, show usage
@@ -193,8 +192,44 @@ function copy {
     printf "\033]52;c;$(cat $FILE | base64)\a"
 }
 
-function repo {
+repo() {
     local repo_name=$(gh repo list | awk '{print $1}' | fzf)
     [[ -z "$repo_name" ]] && return
     x-www-browser --url "https://github.com/$repo_name"
+}
+
+run() {
+    local file
+    # files="$(git status -s | fzf -m | awk '{print $2}' | tr '\n' ' ')"
+    file="$(fdfind . -e cpp -e c | fzf)"
+
+    if [ -z "$file" ]; then
+        echo "Please select at least one file"
+        return
+    fi
+
+    g++ "$file" && ./a.out && rm a.out
+}
+
+bashrc() {
+    local file="$HOME/.bashrc"
+    local _pwd="$(pwd)"
+
+    case "$1" in
+        -o)
+            cat "$file"
+            ;;
+        -e)
+            nvim "$file"
+            ;;
+        "")
+            # shellcheck disable=SC1090
+            source "$file"
+            echo "✔ ~/.bashrc sourced"
+            ;;
+        *)
+            echo "Usage: bashrc [-o | -e]"
+            return 1
+            ;;
+    esac
 }
