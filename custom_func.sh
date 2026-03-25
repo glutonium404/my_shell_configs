@@ -144,13 +144,23 @@ gitadd() {
 
 mdpdf() {
     local view=false
+    local style=false
 
-    if [[ "$1" == "-v" ]]; then
-        view=true
-    fi
+    # check if -v or --view flag is passed or -s or --style flag is passed
+    while [[ "$1" != "" ]]; do
+        case $1 in
+            -v | --view )    view=true
+                             ;;
+            -s | --style )   style=true
+                             ;;
+            * )              echo "Usage: mdpdf [-v|--view] [-s|--style]"
+                             return
+        esac
+        shift
+    done
 
     local md_files
-    md_files=$(fdfind -e md --max-depth 1) || return
+    md_files=$(fdfind -e md --maxdepth 1) || return
 
     if [[ -z "$md_files" ]]; then
         echo "No markdown files found."
@@ -166,7 +176,19 @@ mdpdf() {
     fi
 
     local fileNameWithoutExt="${file%.*}"
-    pandoc --pdf-engine=wkhtmltopdf "$file" -o "${fileNameWithoutExt}.pdf"
+
+    if $style; then
+        local css_file
+        css_file=$(find . -type f -name "style.css" --maxdepth 1)
+
+        if [[ -z "$css_file" ]]; then
+            css_file=$(fdfind . -e css --maxdepth 1 | fzf --prompt="Select a CSS file: ") || return
+        fi
+
+        pandoc --pdf-engine=wkhtmltopdf "$file" -o "${fileNameWithoutExt}.pdf" -c "$css_file"
+    else
+        pandoc --pdf-engine=wkhtmltopdf "$file" -o "${fileNameWithoutExt}.pdf"
+    fi
 
     if $view; then
         echo "Opening ${fileNameWithoutExt}.pdf..."
@@ -232,4 +254,8 @@ bashrc() {
             return 1
             ;;
     esac
+}
+
+function chtsh {
+    curl cht.sh/$1 | batcat
 }
