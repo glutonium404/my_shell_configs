@@ -259,3 +259,9 @@ bashrc() {
 function chtsh {
     curl cht.sh/$1 | batcat
 }
+
+function clone {
+    local repo_name=$(gh repo list | awk '{print $1}' | fzf)
+    [[ -z "$repo_name" ]] && return
+    gh repo clone $repo_name
+}
