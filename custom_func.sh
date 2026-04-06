@@ -265,3 +265,11 @@ function clone {
     [[ -z "$repo_name" ]] && return
     gh repo clone $repo_name
 }
+
+function gem {
+    local temp_file=$(mktemp)
+    gemini $@ > $temp_file
+    batcat "$temp_file"
+    cat $temp_file
+    rm "$temp_file"
+}
