@@ -97,12 +97,14 @@ fat() {
 
 cddr() {
     # try with `fd` if `fdfind` doesn't work. refer to the doc for other issues
-    fdfind -t d --hidden \
+    fdfind -t d -L --hidden \
         --exclude node_modules \
         --exclude .local \
         --exclude .cache \
         --exclude .git \
-        --base-directory "$HOME" > "$HOME/.local/fzf_cache/dirs.txt"
+        --max-depth 20 \
+        --base-directory "$HOME" \
+        > "$HOME/.local/fzf_cache/dirs.txt"
 }
 
 cdd() {
@@ -221,16 +223,30 @@ repo() {
 }
 
 run() {
-    local file
-    # files="$(git status -s | fzf -m | awk '{print $2}' | tr '\n' ' ')"
-    file="$(fdfind . -e cpp -e c | fzf)"
+    case "$1" in
+        -p)
+            if [ -z "$PREVIOUSLY_RAN_CPP" ]; then
+                echo "No previous cpp file"
+            else
+                g++ "$PREVIOUSLY_RAN_CPP" && ./a.out && rm a.out
+            fi
+            ;;
+        "")
+            local file
+            file="$(fdfind . -e cpp -e c | fzf)"
 
-    if [ -z "$file" ]; then
-        echo "Please select at least one file"
-        return
-    fi
-
-    g++ "$file" && ./a.out && rm a.out
+            if [ -z "$file" ]; then
+                echo "Please select at least one file"
+                return
+            fi
+            echo "PREVIOUSLY_RAN_CPP=\"$(pwd)/$file\"" > "$HOME/.shell_custom_config/my_variables.sh"
+            g++ "$file" && ./a.out && rm a.out
+            ;;
+        *)
+            echo "Usage: bashrc [-o | -e]"
+            return 1
+            ;;
+    esac
 }
 
 bashrc() {
