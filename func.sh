@@ -274,7 +274,7 @@ run() {
             return 1
             ;;
     esac
-
+}
 
 bashrc() {
     local file="$HOME/.bashrc"
