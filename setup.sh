@@ -107,9 +107,9 @@
 # ln -sf "$HOME/.shell_custom_config/tmux.conf" "$HOME/.tmux.conf"
 
 # # Only append to .bashrc if the line isn't already there (Idempotency)
-# if ! grep -q 'source "$HOME/.shell_custom_config/custom.sh"' "$HOME/.bashrc"; then
+# if ! grep -q 'source "$HOME/.shell_custom_config/init.sh"' "$HOME/.bashrc"; then
 #     echo '' >> "$HOME/.bashrc"
-#     echo 'source "$HOME/.shell_custom_config/custom.sh"' >> "$HOME/.bashrc"
+#     echo 'source "$HOME/.shell_custom_config/init.sh"' >> "$HOME/.bashrc"
 #     log_success "Appended custom.sh to .bashrc"
 # else
 #     log_warn "custom.sh is already sourced in .bashrc. Skipping."
@@ -197,7 +197,7 @@ echo "enabling custom shell configs setups"
 echo "===================================="
 ln -s "$HOME/.shell_custom_config/tmux.conf" "$HOME/.tmux.conf"
 echo '' >> "$HOME/.bashrc"
-echo 'source "$HOME/.shell_custom_config/custom.sh"' >> "$HOME/.bashrc"
+echo 'source "$HOME/.shell_custom_config/init.sh"' >> "$HOME/.bashrc"
 
 echo "================================================"
 echo "setting up tmux plugin manager and other plugins"
