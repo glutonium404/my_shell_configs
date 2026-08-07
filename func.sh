@@ -60,7 +60,7 @@ yt() {
     local search_query=$(echo $1 | tr " " +) # replace all white space with +
     local url="https://www.youtube.com/results?search_query=$search_query"
     echo $url
-    x-www-browser --url $url # opens the url in the browser
+    xdg-open $url # opens the url in the browser
 }
 
 findfile() {
@@ -194,7 +194,7 @@ mdpdf() {
 
     if $view; then
         echo "Opening ${fileNameWithoutExt}.pdf..."
-        x-www-browser "${fileNameWithoutExt}.pdf"
+        xdg-open "${fileNameWithoutExt}.pdf"
     fi
 }
 
@@ -219,7 +219,7 @@ copy() {
 repo() {
     local repo_name=$(gh repo list | awk '{print $1}' | fzf)
     [[ -z "$repo_name" ]] && return
-    x-www-browser --url "https://github.com/$repo_name"
+    xdg-open "https://github.com/$repo_name"
 }
 
 run() {

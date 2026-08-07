@@ -6,3 +6,4 @@ alias dir='dir --color=always'
 
 source "$HOME/.shell_custom_config/func.sh"
 source "$HOME/.shell_custom_config/keybind.sh"
+source "$HOME/.shell_custom_config/env.sh"
