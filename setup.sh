@@ -110,9 +110,9 @@
 # if ! grep -q 'source "$HOME/.shell_custom_config/init.sh"' "$HOME/.bashrc"; then
 #     echo '' >> "$HOME/.bashrc"
 #     echo 'source "$HOME/.shell_custom_config/init.sh"' >> "$HOME/.bashrc"
-#     log_success "Appended custom.sh to .bashrc"
+#     log_success "Appended init.sh to .bashrc"
 # else
-#     log_warn "custom.sh is already sourced in .bashrc. Skipping."
+#     log_warn "init.sh is already sourced in .bashrc. Skipping."
 # fi
 
 # # ==============================================================================
