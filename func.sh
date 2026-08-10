@@ -290,7 +290,7 @@ bashrc() {
         "")
             # shellcheck disable=SC1090
             source "$file"
-            echo "✔ ~/.bashrc sourced"
+            echo -e "\033[0;32m  .bashrc sourced\033[0m"
             ;;
         *)
             echo "Usage: bashrc [-o | -e]"
