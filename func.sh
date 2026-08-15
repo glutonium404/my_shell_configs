@@ -96,12 +96,22 @@ fat() {
 }
 
 cddr() {
-    # try with `fd` if `fdfind` doesn't work. refer to the doc for other issues
-    fdfind -t d -L --hidden \
+    fd -t d -L --hidden \
         --exclude node_modules \
         --exclude .local \
         --exclude .cache \
         --exclude .git \
+        --exclude .rustup \
+        --exclude .cargo \
+        --exclude .copilot \
+        --exclude .gradle \
+        --exclude .landscape \
+        --exclude .m2 \
+        --exclude .npm \
+        --exclude .nvm \
+        --exclude .tmux \
+        --exclude .vim \
+        --exclude .wakatime \
         --max-depth 20 \
         --base-directory "$HOME" \
         > "$HOME/.local/fzf_cache/dirs.txt"
@@ -162,7 +172,7 @@ mdpdf() {
     done
 
     local md_files
-    md_files=$(fdfind -e md --maxdepth 1) || return
+    md_files=$(fd -e md --maxdepth 1) || return
 
     if [[ -z "$md_files" ]]; then
         echo "No markdown files found."
@@ -184,7 +194,7 @@ mdpdf() {
         css_file=$(find . -type f -name "style.css" --maxdepth 1)
 
         if [[ -z "$css_file" ]]; then
-            css_file=$(fdfind . -e css --maxdepth 1 | fzf --prompt="Select a CSS file: ") || return
+            css_file=$(fd . -e css --maxdepth 1 | fzf --prompt="Select a CSS file: ") || return
         fi
 
         pandoc --pdf-engine=wkhtmltopdf "$file" -o "${fileNameWithoutExt}.pdf" -c "$css_file"
@@ -242,12 +252,12 @@ run() {
             fi
             ;;
         "")
-            # 2. Check for fd or fdfind
+            # 2. Check for fd or fd
             local fd_cmd
-            fd_cmd=$(command -v fdfind || command -v fd)
+            fd_cmd=$(command -v fd || command -v fd)
 
             if [[ -z "$fd_cmd" ]]; then
-                echo "Error: fd or fdfind is not installed."
+                echo "Error: fd or fd is not installed."
                 return 1
             fi
 
