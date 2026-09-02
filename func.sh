@@ -17,7 +17,7 @@ mcd() {
 }
 
 cd() {
-    builtin cd $1 && ls
+    builtin cd "$@" && ls
 }
 
 # select multiple files and delete them together

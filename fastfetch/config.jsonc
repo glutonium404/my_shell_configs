@@ -111,7 +111,7 @@
     },
     {
       "type": "shell",
-      "key": "╰─j",
+      "key": "╰─ ",
       "keyColor": "green"
     },
     "break",
