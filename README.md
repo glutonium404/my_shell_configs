@@ -19,7 +19,7 @@ term_.prefs_.set('user-css-text', '@font-face {font-family: "JetBrains Mono Nerd
 
 ## Current theme
 
-To set the theme:
+To set the theme on chromeos:
 - copy the code below
 - open terminal
 - open console with ctrl + shift + j
@@ -35,7 +35,7 @@ const theme = {
         "#CD8275", // red
         "#70A97B", // green
         "#AC975C", // yellow
-        "#8396D1", // blue
+        "#37336C", // blue
         "#BF7FB9", // magenta
         "#5EA5B2", // cyan
         "#C0AFE1", // white
@@ -43,13 +43,14 @@ const theme = {
         "#DC9B90", // brightRed
         "#84BF90", // brightGreen
         "#C3AC70", // brightYellow
-        "#9CACDD", // brightBlue
+        "#6B65E4", // brightBlue
         "#D099CA", // brightMagenta
         "#73BBC8", // brightCyan
         "#F2EFF9" // brightWhite
     ],
 }
 
+// the following is for chromeos terminal
 for(const [key, value] of Object.entries(themes)) {
     term_.prefs_.set(key, value);
 }
