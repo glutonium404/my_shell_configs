@@ -97,29 +97,19 @@ fat() {
 
 cddr() {
     fd -t d -L --hidden \
-        --exclude node_modules \
-        --exclude .local \
-        --exclude .cache \
-        --exclude .git \
-        --exclude .rustup \
-        --exclude .cargo \
-        --exclude .copilot \
-        --exclude .gradle \
-        --exclude .landscape \
-        --exclude .m2 \
-        --exclude .npm \
-        --exclude .nvm \
-        --exclude .tmux \
-        --exclude .vim \
-        --exclude .wakatime \
         --max-depth 20 \
         --base-directory "$HOME" \
         > "$HOME/.local/fzf_cache/dirs.txt"
 }
 
+ignore() {
+    local script_dir="$(command cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    bash "$script_dir/scripts/ignore" $*
+}
+
 cdd() {
     local dir
-    dir=$(cat "$HOME/.local/fzf_cache/dirs.txt" | fzf)
+    dir=$(cat "$HOME/.local/fzf_cache/dirs.txt" | fzf --border-label='   Search Directories ')
 
     if [[ -n "$dir" ]]; then
         cd "$HOME/$dir" || exit
@@ -162,11 +152,11 @@ mdpdf() {
     while [[ "$1" != "" ]]; do
         case $1 in
             -v | --view )    view=true
-                             ;;
+                ;;
             -s | --style )   style=true
-                             ;;
+                ;;
             * )              echo "Usage: mdpdf [-v|--view] [-s|--style]"
-                             return
+                return
         esac
         shift
     done

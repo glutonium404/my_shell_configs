@@ -1,0 +1,342 @@
+#!/usr/bin/env bash
+#
+# Requires bash 4.3+ (uses associative arrays and negative array indices).
+# On macOS, the system /bin/bash is 3.2 — install a newer bash via
+# `brew install bash` and run this with that binary explicitly if needed.
+# Also requires GNU realpath's -s/--no-symlinks flag (path stays
+# symlink-aware rather than resolving to the physical target -- see
+# logical_path() below). macOS's BSD realpath lacks this flag; install
+# GNU coreutils (`brew install coreutils`) and alias realpath to
+# grealpath if needed.
+
+set -euo pipefail
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/fd"
+IGNOREFILE="${CONFIG_DIR}/ignore"
+
+# fd is run with --base-directory pointed here, so every rule written to
+# IGNOREFILE must be expressed relative to this directory, not as an
+# absolute filesystem path -- fd anchors absolute-looking patterns to the
+# base directory's root, not to /, so a real absolute path in the file
+# just silently never matches anything. Override with FD_BASE_DIR if your
+# fd invocation uses a different --base-directory.
+BASE_DIR="${FD_BASE_DIR:-$HOME}"
+
+child_only=false
+target=""
+declare -a exclude_dirs=()
+declare -a raw_entries=()
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [PATH] [-c|--child-only] [-e|--exclude DIR1 DIR2 ...]
+       $(basename "$0") -r|--raw PATTERN1 [PATTERN2 ...]
+
+Appends directory rules to the global fd ignore file (${IGNOREFILE}).
+All rules are written relative to the base directory (${BASE_DIR}),
+matching how fd is invoked with --base-directory. Override the base
+with the FD_BASE_DIR environment variable if needed.
+
+Options:
+  PATH                 Directory to ignore (defaults to current directory).
+  -c, --child-only     Ignore the directory's contents, but keep the
+                       directory itself visible to fd.
+  -e, --exclude DIRS   Sub-paths of PATH to exclude from the ignore (they
+                       stay visible while everything else under PATH is
+                       ignored). Paths are relative to PATH and may be
+                       nested, e.g. 'Project/Java'. Passing -e implies
+                       --child-only.
+  -r, --raw PATTERNS   Append one or more patterns to the ignore file
+                       exactly as given, with no path resolution or
+                       validation. Must be used alone — no PATH, -c, or
+                       -e alongside it.
+  -h, --help           Display this help message.
+
+Examples:
+  $(basename "$0") Windows -c -e Media
+      Keep Windows itself and Media visible; ignore everything else
+      directly inside Windows (does not recurse exceptions further).
+
+  $(basename "$0") Windows -e Media Project/Java
+      Ignore everything inside Windows except Media, and except
+      Windows/Project/Java (everything else inside Project is still
+      ignored).
+
+  $(basename "$0") -r '*.log' 'build/'
+      Append these two patterns to the ignore file verbatim.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -c|--child-only)
+            child_only=true
+            shift
+            ;;
+        -e|--exclude)
+            shift
+            while [[ $# -gt 0 && "$1" != -* ]]; do
+                exclude_dirs+=("$1")
+                shift
+            done
+            ;;
+        -r|--raw)
+            shift
+            while [[ $# -gt 0 && "$1" != -* ]]; do
+                raw_entries+=("$1")
+                shift
+            done
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -*)
+            echo "Error: Unknown flag $1" >&2
+            usage >&2
+            exit 1
+            ;;
+        *)
+            if [[ -z "$target" ]]; then
+                target="$1"
+            else
+                echo "Error: Multiple target paths specified ('$target' and '$1')." >&2
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+# -r/--raw is standalone: it bypasses all path resolution, so combining it
+# with a target or the other flags would be misleading about what's actually
+# happening.
+if [[ ${#raw_entries[@]} -gt 0 ]]; then
+    if [[ -n "$target" || "$child_only" == true || ${#exclude_dirs[@]} -gt 0 ]]; then
+        echo "Error: -r/--raw must be used alone (no PATH, -c, or -e)." >&2
+        exit 1
+    fi
+fi
+
+# -e implies -c: negation can never reach into a directory that's fully
+# ignored, so any exception forces the target into child-only mode.
+if [[ ${#exclude_dirs[@]} -gt 0 ]]; then
+    child_only=true
+fi
+
+# Normalize a path's "." and ".." components lexically without resolving
+# symlinks -- unlike plain `realpath`, a symlinked directory inside the
+# path keeps its own name/location rather than being replaced by whatever
+# it physically points at. That's what we want: rules should reflect the
+# tree as the user navigates it (cd, ls), not the symlink's real target.
+logical_path() {
+    realpath -sm -- "$1"
+}
+
+# Raw mode never touches BASE_DIR, so only resolve/validate it for the
+# normal target-based path.
+if [[ ${#raw_entries[@]} -eq 0 ]]; then
+    if [[ ! -d "$BASE_DIR" ]]; then
+        echo "Error: base directory '$BASE_DIR' does not exist." >&2
+        exit 1
+    fi
+    BASE_DIR="$(logical_path "$BASE_DIR")"
+fi
+
+ensure_ignorefile() {
+    [[ -d "$CONFIG_DIR" ]] || mkdir -p "$CONFIG_DIR"
+    [[ -f "$IGNOREFILE" ]] || touch "$IGNOREFILE"
+}
+
+declare -A pending_lines=()
+declare -a ordered_lines=()
+
+queue_line() {
+    local line="$1"
+    if [[ -n "${pending_lines[$line]+x}" ]]; then
+        return 0
+    fi
+    if grep -Fxq "$line" "$IGNOREFILE"; then
+        echo "Skipped: '$line' is already in $IGNOREFILE"
+        return 0
+    fi
+    pending_lines["$line"]=1
+    ordered_lines+=("$line")
+}
+
+# If the target is currently a full-ignore entry ("path/") but we now need
+# child-only + negation, that old line blocks all negation underneath it.
+# Rewrite it in place and say so. `anchor` is the target path as written
+# in the ignore file (relative to BASE_DIR).
+demote_full_ignore_if_needed() {
+    local anchor="$1"
+    local full_entry="${anchor}/"
+
+    if [[ "$child_only" == true ]] && grep -Fxq "$full_entry" "$IGNOREFILE"; then
+        echo "Note: '$full_entry' was fully ignored; converting to child-only so exceptions can apply."
+        local tmp
+        tmp="$(mktemp "${IGNOREFILE}.XXXXXX")"
+        # grep -v exits 1 when every line matched (i.e. output is empty) --
+        # that's a normal outcome here, not a failure, so don't let set -e
+        # treat it as one.
+        grep -Fxv "$full_entry" "$IGNOREFILE" > "$tmp" || true
+        mv "$tmp" "$IGNOREFILE"
+    fi
+}
+
+# Reverse case: target already has a child-only rule with exceptions, and
+# this run wants a plain full-ignore. Appending "path/" after "path/*" would
+# silently override every existing exception (last match wins in gitignore
+# rule order), so refuse instead of doing that quietly.
+guard_child_to_full_conflict() {
+    local anchor="$1"
+    local child_entry="${anchor}/*"
+    if [[ "$child_only" == false ]] && grep -Fxq "$child_entry" "$IGNOREFILE"; then
+        echo "Error: '$anchor' already has a child-only rule (with possible exceptions) in $IGNOREFILE." >&2
+        echo "Adding a full-ignore rule now would silently override those exceptions." >&2
+        echo "Remove the existing '${child_entry}' and '!${anchor}/...' lines first if that's what you want." >&2
+        exit 1
+    fi
+}
+
+validate_and_resolve_target() {
+    local raw_path="$1"
+    if [[ ! -d "$raw_path" ]]; then
+        echo "Error: Directory '$raw_path' does not exist." >&2
+        exit 1
+    fi
+    logical_path "$raw_path"
+}
+
+# Convert an absolute path to a path relative to BASE_DIR, since that's
+# what fd's --base-directory expects in the ignore file. Errors out if the
+# path isn't under BASE_DIR at all -- fd wouldn't scan it in that mode
+# anyway, so there's no relative rule that could express it.
+to_base_relative() {
+    local abs_path="$1" label="$2"
+    case "$abs_path" in
+        "${BASE_DIR}/"*)
+            echo "${abs_path#"${BASE_DIR}/"}"
+            ;;
+        "$BASE_DIR")
+            echo "Error: $label resolves to the base directory itself ('$BASE_DIR') -- nothing to make relative." >&2
+            exit 1
+            ;;
+        *)
+            echo "Error: $label ('$abs_path') is not under the base directory '$BASE_DIR'." >&2
+            echo "fd is run with --base-directory $BASE_DIR, so a rule outside it wouldn't match anything." >&2
+            exit 1
+            ;;
+    esac
+}
+
+# Validate an -e path resolves to an existing directory strictly under
+# target, and print it relative to target (no leading/trailing slash).
+resolve_exclude_rel() {
+    local target_abs="$1" raw_sub="$2"
+    local candidate="${target_abs}/${raw_sub}"
+
+    if [[ ! -d "$candidate" ]]; then
+        echo "Error: '-e ${raw_sub}' does not resolve to an existing directory under '$target_abs'." >&2
+        exit 1
+    fi
+
+    local abs_sub
+    abs_sub="$(logical_path "$candidate")"
+
+    case "$abs_sub" in
+        "${target_abs}/"*)
+            echo "${abs_sub#"${target_abs}/"}"
+            ;;
+        *)
+            echo "Error: '-e ${raw_sub}' escapes the target directory '$target_abs' (resolved to '$abs_sub')." >&2
+            exit 1
+            ;;
+    esac
+}
+
+# Queue the blanket rule for target, plus a reopen/reignore/negate chain for
+# each exception path. `anchor` is the target path relative to BASE_DIR.
+build_target_rules() {
+    local anchor="$1"
+    shift
+    local -a rel_excludes=("$@")
+
+    demote_full_ignore_if_needed "$anchor"
+
+    if [[ "$child_only" == true ]]; then
+        queue_line "${anchor}/*"
+    else
+        guard_child_to_full_conflict "$anchor"
+        queue_line "${anchor}/"
+    fi
+
+    local rel
+    for rel in "${rel_excludes[@]}"; do
+        IFS='/' read -ra parts <<< "$rel"
+        local path="$anchor"
+        local i
+        # Reopen every intermediate directory: negate it so fd descends,
+        # then re-ignore its contents so untouched siblings stay hidden,
+        # before going one level deeper.
+        for (( i=0; i<${#parts[@]}-1; i++ )); do
+            path="${path}/${parts[$i]}"
+            queue_line "!${path}/"
+            queue_line "${path}/*"
+        done
+        path="${path}/${parts[-1]}"
+        queue_line "!${path}/"
+    done
+}
+
+main() {
+    ensure_ignorefile
+
+    if [[ ${#raw_entries[@]} -gt 0 ]]; then
+        local entry
+        for entry in "${raw_entries[@]}"; do
+            queue_line "$entry"
+        done
+
+        if [[ ${#ordered_lines[@]} -eq 0 ]]; then
+            echo "Nothing new to add."
+            return 0
+        fi
+
+        printf '%s\n' "${ordered_lines[@]}" >> "$IGNOREFILE"
+        local line
+        for line in "${ordered_lines[@]}"; do
+            echo "Added to global ignore: $line"
+        done
+        return 0
+    fi
+
+    if [[ -z "$target" ]]; then
+        target="$(pwd)"
+    fi
+    local target_abs
+    target_abs="$(validate_and_resolve_target "$target")"
+    local target_rel
+    target_rel="$(to_base_relative "$target_abs" "target")"
+
+    local -a rel_excludes=()
+    local d
+    for d in "${exclude_dirs[@]}"; do
+        rel_excludes+=("$(resolve_exclude_rel "$target_abs" "$d")")
+    done
+
+    build_target_rules "$target_rel" "${rel_excludes[@]}"
+
+    if [[ ${#ordered_lines[@]} -eq 0 ]]; then
+        echo "Nothing new to add."
+        return 0
+    fi
+
+    printf '%s\n' "${ordered_lines[@]}" >> "$IGNOREFILE"
+    local line
+    for line in "${ordered_lines[@]}"; do
+        echo "Added to global ignore: $line"
+    done
+}
+
+main
