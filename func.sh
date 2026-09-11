@@ -48,10 +48,10 @@ parse_git_branch() {
         # Check for uncommitted changes
         if [ -n "$(git status --porcelain)" ]; then
             # Uncommitted changes detected
-            printf "\e[0m\e[1;91m($branch)\e[0m "
+            printf "\001\e[0m\e[1;91m\002(%s)\001\e[0m\002 " "$branch"
         else
             # Clean working tree
-            printf "\e[0m\e[1;92m($branch)\e[0m "
+            printf "\001\e[0m\e[1;92m\002(%s)\001\e[0m\002 " "$branch"
         fi
     fi
 }
@@ -299,20 +299,44 @@ bashrc() {
     esac
 }
 
-function chtsh {
+chtsh() {
     curl cht.sh/$1 | batcat
 }
 
-function clone {
+clone() {
     local repo_name=$(gh repo list | awk '{print $1}' | fzf)
     [[ -z "$repo_name" ]] && return
     gh repo clone $repo_name
 }
 
-function gem {
+gem() {
     local temp_file=$(mktemp)
     gemini $@ > $temp_file
     batcat "$temp_file"
     cat $temp_file
     rm "$temp_file"
+}
+
+compress() {
+    if ! command -v ffmpeg &> /dev/null; then
+        echo "Error: ffmpeg is required to use this command."
+        return 1
+    fi
+
+    local input_file=$1
+
+    if [[ ! -f $input_file ]]; then
+        echo "Error: Given Path $1 is not a valid file" >& 2
+        return 1
+    fi
+
+
+    if file --mime-type -b "$input_file" | grep -q "^video/"; then
+        local output="compressed_$1"
+        ffmpeg -i $input_file -vcodec libx265 -crf 28 "$output"
+    else
+        echo "Error: File $1 is not of mime-type video/*" >& 2
+        return 1
+    fi
+
 }
