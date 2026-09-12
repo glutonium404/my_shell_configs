@@ -29,10 +29,12 @@ read -r -d '' DEFAULT_CONFIG << 'EOF' || true
     "font_size": 60,
     "crf": 28,
     "codec": "libx265",
+    "blur_strength": 25,
+    "dim_amount": -0.05,
     "output": "final_output.mp4",
     "entries": [
-        { "text": "Example Title", "video": "video1.mp4" },
-        { "text": "", "video": "video2.mp4", "audio": "narration2.mp3" }
+        { "text": "Video 1", "video": "video1.mp4" },
+        { "text": "Video 2 With Audio", "video": "video2.mp4", "audio": "audio.mp3" }
     ]
 }
 EOF
@@ -110,6 +112,8 @@ resolution=$(jq -r '.resolution' "$CONFIG")
 fps=$(jq -r '.fps' "$CONFIG")
 font_file=$(jq -r '.font_file' "$CONFIG")
 font_size=$(jq -r '.font_size' "$CONFIG")
+blur_strength=$(jq -r '.blur_strength // 20' "$CONFIG")
+dim_amount=$(jq -r '.dim_amount // -0.3' "$CONFIG")
 crf=$(jq -r '.crf' "$CONFIG")
 codec=$(jq -r '.codec' "$CONFIG")
 output=$(jq -r '.output' "$CONFIG")
@@ -157,10 +161,12 @@ for ((i = 0; i < entry_count; i++)); do
 
     echo "[$((i + 1))/$entry_count] Title card: $text"
     ffmpeg -y -hide_banner -loglevel error \
-    -f lavfi -i "color=c=black:s=${resolution}:r=${fps}:d=${duration}" \
-    -f lavfi -i "anullsrc=r=${audio_rate}:cl=stereo" \
-    -vf "drawtext=fontfile=${font_file}:text='${escaped_text}':fontcolor=white:fontsize=${font_size}:x=(w-text_w)/2:y=(h-text_h)/2" \
-    -c:v libx264 -preset fast -c:a aac -shortest "$title_clip"
+        -stream_loop -1 -i "$video" \
+        -f lavfi -i "anullsrc=r=${audio_rate}:cl=stereo" \
+        -t "$duration" \
+        -vf "scale=${res_colon}:force_original_aspect_ratio=increase,crop=${res_colon},boxblur=${blur_strength}:5,eq=brightness=${dim_amount},fps=${fps},drawtext=fontfile=${font_file}:text='${escaped_text}':fontcolor=white:fontsize=${font_size}:x=(w-text_w)/2:y=(h-text_h)/2" \
+        -map 0:v -map 1:a \
+        -c:v libx264 -preset fast -c:a aac -shortest "$title_clip"
 
     if [[ -n "$audio" ]]; then
         echo "[$((i + 1))/$entry_count] Normalizing: $video (audio replaced with: $audio)"
@@ -168,16 +174,16 @@ for ((i = 0; i < entry_count; i++)); do
         # longer, silence-pad it if it's shorter. Video length always wins.
         vid_dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$video")
         ffmpeg -y -hide_banner -loglevel error \
-        -i "$video" -i "$audio" \
-        -filter_complex "[0:v]scale=${res_colon}:force_original_aspect_ratio=decrease,pad=${res_colon}:(ow-iw)/2:(oh-ih)/2,fps=${fps}[vid];[1:a]atrim=0:${vid_dur},apad=whole_dur=${vid_dur},aformat=sample_rates=${audio_rate}:channel_layouts=stereo[aud]" \
-        -map "[vid]" -map "[aud]" \
-        -c:v libx264 -preset fast -c:a aac "$norm_clip"
+            -i "$video" -i "$audio" \
+            -filter_complex "[0:v]scale=${res_colon}:force_original_aspect_ratio=decrease,pad=${res_colon}:(ow-iw)/2:(oh-ih)/2,fps=${fps}[vid];[1:a]atrim=0:${vid_dur},apad=whole_dur=${vid_dur},aformat=sample_rates=${audio_rate}:channel_layouts=stereo[aud]" \
+            -map "[vid]" -map "[aud]" \
+            -c:v libx264 -preset fast -c:a aac "$norm_clip"
     else
         echo "[$((i + 1))/$entry_count] Normalizing: $video"
         ffmpeg -y -hide_banner -loglevel error -i "$video" \
-        -vf "scale=${res_colon}:force_original_aspect_ratio=decrease,pad=${res_colon}:(ow-iw)/2:(oh-ih)/2,fps=${fps}" \
-        -ar "$audio_rate" -ac "$audio_channels" \
-        -c:v libx264 -preset fast -c:a aac "$norm_clip"
+            -vf "scale=${res_colon}:force_original_aspect_ratio=decrease,pad=${res_colon}:(ow-iw)/2:(oh-ih)/2,fps=${fps}" \
+            -ar "$audio_rate" -ac "$audio_channels" \
+            -c:v libx264 -preset fast -c:a aac "$norm_clip"
     fi
 
     echo "file '$title_clip'" >> "$concat_list"
@@ -191,4 +197,4 @@ ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 -i "$concat_list" -c co
 echo "Compressing final output (this is the slow step)..."
 ffmpeg -y -hide_banner -loglevel error -i "$merged" -vcodec "$codec" -crf "$crf" "$output"
 
-echo "Done. Output saved to: $output
+echo "Done. Output saved to: $output"

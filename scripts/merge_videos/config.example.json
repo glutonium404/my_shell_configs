@@ -1,15 +1,16 @@
 {
-  "title_duration": 3,
-  "resolution": "1920x1080",
-  "fps": 30,
-  "font_file": "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-  "font_size": 60,
-  "crf": 28,
-  "codec": "libx265",
-  "output": "final_output.mp4",
-  "entries": [
-    { "text": "Surviving Recomposition", "video": "video1.mp4" },
-    { "text": "Configuration Change", "video": "video2.mp4" },
-    { "text": "UI Testing", "video": "video3.mp4" }
-  ]
+    "title_duration": 3,
+    "resolution": "1920x1080",
+    "fps": 30,
+    "font_file": "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "font_size": 60,
+    "crf": 28,
+    "codec": "libx265",
+    "blur_strength": 25,
+    "dim_amount": -0.05,
+    "output": "final_output.mp4",
+    "entries": [
+        { "text": "Video 1", "video": "video1.mp4" },
+        { "text": "Video 2 With Audio", "video": "video2.mp4", "audio": "audio.mp3" }
+    ]
 }
