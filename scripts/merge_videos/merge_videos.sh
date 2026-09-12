@@ -156,17 +156,29 @@ for ((i = 0; i < entry_count; i++)); do
     title_clip="$workdir/title_$i.mp4"
     norm_clip="$workdir/video_$i.mp4"
 
-    # Escape characters that break drawtext (colon and single quote)
-    escaped_text=$(printf '%s' "$text" | sed "s/:/\\\\:/g; s/'/\\\\'/g")
+    # Split into separate lines ourselves and draw each one as its own
+    # drawtext filter, rather than relying on ffmpeg to interpret a newline
+    # character (that behaves inconsistently across ffmpeg builds/versions).
+    mapfile -t text_lines <<< "$text"
+    num_lines=${#text_lines[@]}
+    line_height=$(( font_size * 13 / 10 ))
+    total_height=$(( line_height * num_lines ))
+
+    drawtext_chain=""
+    for ((li = 0; li < num_lines; li++)); do
+        line_escaped=$(printf '%s' "${text_lines[$li]}" | sed "s/:/\\\\:/g; s/'/\\\\'/g")
+        y_offset=$(( li * line_height ))
+        drawtext_chain+=",drawtext=fontfile=${font_file}:text='${line_escaped}':fontcolor=white:fontsize=${font_size}:x=(w-text_w)/2:y=(h-${total_height})/2+${y_offset}"
+    done
 
     echo "[$((i + 1))/$entry_count] Title card: $text"
     ffmpeg -y -hide_banner -loglevel error \
-        -stream_loop -1 -i "$video" \
-        -f lavfi -i "anullsrc=r=${audio_rate}:cl=stereo" \
-        -t "$duration" \
-        -vf "scale=${res_colon}:force_original_aspect_ratio=increase,crop=${res_colon},boxblur=${blur_strength}:5,eq=brightness=${dim_amount},fps=${fps},drawtext=fontfile=${font_file}:text='${escaped_text}':fontcolor=white:fontsize=${font_size}:x=(w-text_w)/2:y=(h-text_h)/2" \
-        -map 0:v -map 1:a \
-        -c:v libx264 -preset fast -c:a aac -shortest "$title_clip"
+    -stream_loop -1 -i "$video" \
+    -f lavfi -i "anullsrc=r=${audio_rate}:cl=stereo" \
+    -t "$duration" \
+    -vf "scale=${res_colon}:force_original_aspect_ratio=increase,crop=${res_colon},boxblur=${blur_strength}:5,eq=brightness=${dim_amount},fps=${fps}${drawtext_chain}" \
+    -map 0:v -map 1:a \
+    -c:v libx264 -preset fast -c:a aac -shortest "$title_clip"
 
     if [[ -n "$audio" ]]; then
         echo "[$((i + 1))/$entry_count] Normalizing: $video (audio replaced with: $audio)"
@@ -174,16 +186,16 @@ for ((i = 0; i < entry_count; i++)); do
         # longer, silence-pad it if it's shorter. Video length always wins.
         vid_dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$video")
         ffmpeg -y -hide_banner -loglevel error \
-            -i "$video" -i "$audio" \
-            -filter_complex "[0:v]scale=${res_colon}:force_original_aspect_ratio=decrease,pad=${res_colon}:(ow-iw)/2:(oh-ih)/2,fps=${fps}[vid];[1:a]atrim=0:${vid_dur},apad=whole_dur=${vid_dur},aformat=sample_rates=${audio_rate}:channel_layouts=stereo[aud]" \
-            -map "[vid]" -map "[aud]" \
-            -c:v libx264 -preset fast -c:a aac "$norm_clip"
+        -i "$video" -i "$audio" \
+        -filter_complex "[0:v]scale=${res_colon}:force_original_aspect_ratio=decrease,pad=${res_colon}:(ow-iw)/2:(oh-ih)/2,fps=${fps}[vid];[1:a]atrim=0:${vid_dur},apad=whole_dur=${vid_dur},aformat=sample_rates=${audio_rate}:channel_layouts=stereo[aud]" \
+        -map "[vid]" -map "[aud]" \
+        -c:v libx264 -preset fast -c:a aac "$norm_clip"
     else
         echo "[$((i + 1))/$entry_count] Normalizing: $video"
         ffmpeg -y -hide_banner -loglevel error -i "$video" \
-            -vf "scale=${res_colon}:force_original_aspect_ratio=decrease,pad=${res_colon}:(ow-iw)/2:(oh-ih)/2,fps=${fps}" \
-            -ar "$audio_rate" -ac "$audio_channels" \
-            -c:v libx264 -preset fast -c:a aac "$norm_clip"
+        -vf "scale=${res_colon}:force_original_aspect_ratio=decrease,pad=${res_colon}:(ow-iw)/2:(oh-ih)/2,fps=${fps}" \
+        -ar "$audio_rate" -ac "$audio_channels" \
+        -c:v libx264 -preset fast -c:a aac "$norm_clip"
     fi
 
     echo "file '$title_clip'" >> "$concat_list"
