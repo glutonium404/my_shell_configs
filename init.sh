@@ -5,6 +5,7 @@ alias fzf='fzf --preview ""'
 alias cls='clear && ls;'
 alias clcd='clear && cd'
 alias dir='dir --color=always'
+alias merge_videos="$MY_CONFIG_PATH/scripts/merge_videos/merge_videos.sh"
 
 ##########################################
 ######### Aliases for wsl only ###########
