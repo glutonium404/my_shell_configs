@@ -4,6 +4,12 @@ alias cls='clear && ls;'
 alias clcd='clear && cd'
 alias dir='dir --color=always'
 
+##########################################
+######### Aliases for wsl only ###########
+if [ -n "$WSL_DISTRO_NAME" ]; then
+    alias getclipboard='powershell.exe Get-Clipboard'
+fi
+
 source "$HOME/.shell_custom_config/func.sh"
 source "$HOME/.shell_custom_config/keybind.sh"
 source "$HOME/.shell_custom_config/env.sh"

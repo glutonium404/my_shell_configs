@@ -281,6 +281,9 @@ bashrc() {
     local _pwd="$(pwd)"
 
     case "$1" in
+        -v)
+            nvim -R $file
+            ;;
         -o)
             cat "$file"
             ;;
@@ -290,7 +293,7 @@ bashrc() {
         "")
             # shellcheck disable=SC1090
             source "$file"
-            echo -e "\033[0;32m  .bashrc sourced\033[0m"
+            echo -e "\033[0;32m  .bashrc sourced\033[0m"
             ;;
         *)
             echo "Usage: bashrc [-o | -e]"
