@@ -326,20 +326,18 @@ compress() {
         return 1
     fi
 
-    local input_file=$1
+    local input_file="$1"
 
-    if [[ ! -f $input_file ]]; then
-        echo "Error: Given Path $1 is not a valid file" >& 2
+    if [[ ! -f "$input_file" ]]; then
+        echo "Error: Given Path $input_file is not a valid file" >&2
         return 1
     fi
-
 
     if file --mime-type -b "$input_file" | grep -q "^video/"; then
-        local output="compressed_$1"
-        ffmpeg -i $input_file -vcodec libx265 -crf 28 "$output"
+        local output="compressed_$input_file"
+        ffmpeg -i "$input_file" -vcodec libx265 -crf 28 "$output"
     else
-        echo "Error: File $1 is not of mime-type video/*" >& 2
+        echo "Error: File $input_file is not of mime-type video/*" >&2
         return 1
     fi
-
 }
