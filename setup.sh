@@ -2,6 +2,8 @@
 
 # #!/usr/bin/env bash
 
+# local dir_name=".my_config"
+
 # # ==============================================================================
 # # 1. Unofficial Bash Strict Mode & Error Handling
 # # ==============================================================================
@@ -82,11 +84,11 @@
 # # 6. Cloning Repositories
 # # ==============================================================================
 # log_info "Cloning shell custom repo..."
-# if [ ! -d "$HOME/.shell_custom_config" ]; then
-#     git clone https://github.com/glutonium69/my_shell_configs "$HOME/.shell_custom_config"
+# if [ ! -d "$HOME/$dir_name" ]; then
+#     git clone https://github.com/glutonium69/my_shell_configs "$HOME/$dir_name"
 # else
 #     log_warn "Shell config repo already exists. Pulling latest..."
-#     git -C "$HOME/.shell_custom_config" pull
+#     git -C "$HOME/$dir_name" pull
 # fi
 
 # log_info "Cloning Neovim kickstart config..."
@@ -104,12 +106,12 @@
 # # ==============================================================================
 # log_info "Enabling custom shell configs..."
 # # -s for symlink, -f to force overwrite if it already exists
-# ln -sf "$HOME/.shell_custom_config/tmux.conf" "$HOME/.tmux.conf"
+# ln -sf "$HOME/$dir_name/tmux.conf" "$HOME/.tmux.conf"
 
 # # Only append to .bashrc if the line isn't already there (Idempotency)
-# if ! grep -q 'source "$HOME/.shell_custom_config/init.sh"' "$HOME/.bashrc"; then
+# if ! grep -q 'source "$HOME/$dir_name/init.sh"' "$HOME/.bashrc"; then
 #     echo '' >> "$HOME/.bashrc"
-#     echo 'source "$HOME/.shell_custom_config/init.sh"' >> "$HOME/.bashrc"
+#     echo 'source "$HOME/$dir_name/init.sh"' >> "$HOME/.bashrc"
 #     log_success "Appended init.sh to .bashrc"
 # else
 #     log_warn "init.sh is already sourced in .bashrc. Skipping."
@@ -185,7 +187,7 @@ nvm install node
 echo "========================="
 echo "cloning shell custom repo"
 echo "========================="
-git clone https://github.com/glutonium69/my_shell_configs "$HOME/.shell_custom_config"
+git clone https://github.com/glutonium69/my_shell_configs "$HOME/$dir_name"
 
 echo "====================="
 echo "cloning neovim config"
@@ -195,9 +197,9 @@ git clone --branch edit-1 --single-branch https://github.com/glutonium69/kicksta
 echo "===================================="
 echo "enabling custom shell configs setups"
 echo "===================================="
-ln -s "$HOME/.shell_custom_config/tmux.conf" "$HOME/.tmux.conf"
+ln -s "$HOME/$dir_name/tmux.conf" "$HOME/.tmux.conf"
 echo '' >> "$HOME/.bashrc"
-echo 'source "$HOME/.shell_custom_config/init.sh"' >> "$HOME/.bashrc"
+echo -e '\n\nsource "$HOME/$dir_name/init.sh"' >> "$HOME/.bashrc"
 
 echo "================================================"
 echo "setting up tmux plugin manager and other plugins"

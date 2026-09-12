@@ -1,3 +1,5 @@
+MY_CONFIG_PATH="$(command cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 alias bat="batcat --paging=never --color=always --style=numbers --line-range=:500"
 alias fzf='fzf --preview ""'
 alias cls='clear && ls;'
@@ -10,10 +12,11 @@ if [ -n "$WSL_DISTRO_NAME" ]; then
     alias getclipboard='powershell.exe Get-Clipboard'
 fi
 
-source "$HOME/.shell_custom_config/func.sh"
-source "$HOME/.shell_custom_config/keybind.sh"
-source "$HOME/.shell_custom_config/env.sh"
+source "$MY_CONFIG_PATH/func.sh"
+source "$MY_CONFIG_PATH/keybind.sh"
+source "$MY_CONFIG_PATH/env.sh"
 
+export MY_CONFIG_PATH
 export EDITOR=nvim
 export FZF_DEFAULT_OPTS=" \
   --color=bg+:#eb7b00,fg+:#000000,spinner:#f5e0dc,hl:#eb7b00 \
