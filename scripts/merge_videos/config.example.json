@@ -12,8 +12,10 @@
         "font_size": 36,
         "font_color": "white"
     },
+    "compress": true,
     "crf": 28,
     "codec": "libx265",
+    "preset": "medium",
     "blur_strength": 25,
     "dim_amount": -0.05,
     "transition_title_to_video": true,

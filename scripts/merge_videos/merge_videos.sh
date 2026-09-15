@@ -1,22 +1,7 @@
 #!/usr/bin/env bash
 #
-# merge_videos.sh
-#
-# Reads a JSON config file listing (title, video) pairs, and produces one
-# final video: a black title card with the title (and an optional
-# description below it), then the video, repeated for each entry, then
-# compressed with your usual settings.
-#
-# Each entry can also have an optional "audio" field. If given, that audio
-# file replaces the video's own audio track entirely.
-#
-# Usage:
-#   ./merge_videos.sh [config.json]        Run the merge using this config (default: config.json)
-#   ./merge_videos.sh -i                    Create a default config.json in the current directory
-#   ./merge_videos.sh -i -y                 Same, but overwrite an existing config.json without asking
-#
-# Requires: ffmpeg, jq
-#   (on WSL: sudo apt install ffmpeg jq)
+# merge_videos.sh — stitch title cards + videos into one final video.
+# Run with -h / --help for full usage and config option details.
 
 set -euo pipefail
 
@@ -36,8 +21,10 @@ read -r -d '' DEFAULT_CONFIG << 'EOF' || true
         "font_size": 36,
         "font_color": "white"
     },
+    "compress": true,
     "crf": 28,
     "codec": "libx265",
+    "preset": "medium",
     "blur_strength": 25,
     "dim_amount": -0.05,
     "transition_title_to_video": true,
@@ -52,7 +39,90 @@ read -r -d '' DEFAULT_CONFIG << 'EOF' || true
 EOF
 
 print_help() {
-    sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+    cat << 'EOF'
+merge_videos.sh — stitch title cards + videos into one final video
+
+WHAT IT DOES
+  Reads a JSON config file listing (title, video) pairs and produces one
+  final video: for each entry, a black title card showing the title (and
+  an optional description below it), then the video itself — repeated
+  for every entry — then compressed with your chosen settings.
+
+  Each entry can optionally have its own "audio" field, which replaces
+  that video's own audio track entirely (trimmed or silence-padded to
+  match the video's length).
+
+USAGE
+  ./merge_videos.sh [config.json]   Run the merge using this config
+                                     (default: config.json in the current dir)
+  ./merge_videos.sh -i               Create a default config.json here
+  ./merge_videos.sh -i -y            Same, but overwrite an existing
+                                     config.json without asking
+  ./merge_videos.sh -h | --help      Show this help
+
+CONFIG FILE OPTIONS
+  title_duration          Seconds each title card is shown for.
+  resolution               Output resolution, e.g. "1920x1080".
+  fps                      Output frame rate.
+
+  title.font_file          Path to the .ttf/.otf font used for the title text.
+  title.font_size           Title font size, in pixels.
+  title.font_color          Title text color (name or hex, e.g. "#afafff").
+
+  description.font_file    Font for the optional description line.
+                             Falls back to title.font_file if omitted.
+  description.font_size     Description font size. Default: 36.
+  description.font_color    Description text color. Default: "white".
+
+  blur_strength             Background blur applied to the title card.
+                             Higher = blurrier. Default: 20.
+  dim_amount                Brightness adjustment on the title card
+                             background, negative = darker. Default: -0.3.
+
+  transition_title_to_video Fade the title card out / video in, between
+                             the two. true/false. Default: true.
+  transition_video_to_title Fade the video out / next title in, between
+                             entries. true/false. Default: true.
+  transition_duration       Length of each fade, in seconds. Default: 0.5.
+                             (A legacy "transition": true/false key still
+                             works and sets both directions at once.)
+
+  compress                Boolean variable that dictates whether to
+                            compress the final video or not. Default to true
+                            If defined as false, any compression related options
+                            will be ignored
+
+  crf                       Compression quality (constant rate factor).
+                             Lower = higher quality & bigger file, higher =
+                             more compression & smaller file. Typical
+                             range: 18 (near-lossless) to 32 (very
+                             compressed). No default — must be set.
+  codec                     Video codec for the final compression pass,
+                             e.g. "libx265" or "libx264". No default —
+                             must be set.
+  preset                    Trades encode time for compression efficiency
+                             at the same crf. Slower = smaller file, same
+                             quality, longer encode. From fastest/biggest
+                             to slowest/smallest: ultrafast, superfast,
+                             veryfast, faster, fast, medium, slow, slower,
+                             veryslow. Default: "medium".
+
+  output                    Filename for the final rendered video.
+
+  entries                   Array of clips to include, in order. Each
+                             entry:
+                               title        Title card text (required).
+                                              Use \n for multiple lines.
+                               video        Path to the video file (required).
+                               description  Optional subtitle line under
+                                              the title.
+                               audio        Optional path to an audio file
+                                              that replaces this video's
+                                              own audio track.
+
+REQUIRES
+  ffmpeg, jq   (on WSL: sudo apt install ffmpeg jq)
+EOF
 }
 
 run_init() {
@@ -135,7 +205,9 @@ transition_video_to_title=$(jq -r 'if has("transition_video_to_title") then .tra
 transition_duration=$(jq -r '.transition_duration // 0.5' "$CONFIG")
 crf=$(jq -r '.crf' "$CONFIG")
 codec=$(jq -r '.codec' "$CONFIG")
+preset=$(jq -r '.preset // "medium"' "$CONFIG")
 output=$(jq -r '.output' "$CONFIG")
+compress=$(jq -r 'if has("compress") then .compress else true end' "$CONFIG")
 
 # Fixed audio settings so every clip (title cards + videos) matches exactly.
 # This is required for the fast "concat" step to work.
@@ -289,7 +361,11 @@ merged="$workdir/merged.mp4"
 echo "Joining all clips together..."
 ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 -i "$concat_list" -c copy "$merged"
 
-echo "Compressing final output (this is the slow step)..."
-ffmpeg -y -hide_banner -loglevel error -i "$merged" -vcodec "$codec" -crf "$crf" "$output"
+if [[ "$compress" == "true" ]]; then
+    echo "Compressing final output (this is the slow step)..."
+    ffmpeg -y -hide_banner -loglevel error -i "$merged" -vcodec "$codec" -crf "$crf" -preset "$preset" "$output"
+else
+    cp "$merged" "$output"
+fi
 
 echo "Done. Output saved to: $output"
