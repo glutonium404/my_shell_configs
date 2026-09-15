@@ -2,9 +2,10 @@
 #
 # merge_videos.sh
 #
-# Reads a JSON config file listing (text, video) pairs, and produces one
-# final video: a black title card with the text, then the video, repeated
-# for each entry, then compressed with your usual settings.
+# Reads a JSON config file listing (title, video) pairs, and produces one
+# final video: a black title card with the title (and an optional
+# description below it), then the video, repeated for each entry, then
+# compressed with your usual settings.
 #
 # Each entry can also have an optional "audio" field. If given, that audio
 # file replaces the video's own audio track entirely.
@@ -25,16 +26,27 @@ read -r -d '' DEFAULT_CONFIG << 'EOF' || true
     "title_duration": 3,
     "resolution": "1920x1080",
     "fps": 30,
-    "font_file": "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    "font_size": 60,
+    "title": {
+        "font_file": "/usr/share/fonts/truetype/lato/Lato-Bold.ttf",
+        "font_size": 60,
+        "font_color": "#afafff"
+    },
+    "description": {
+        "font_file": "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "font_size": 36,
+        "font_color": "white"
+    },
     "crf": 28,
     "codec": "libx265",
     "blur_strength": 25,
     "dim_amount": -0.05,
+    "transition_title_to_video": true,
+    "transition_video_to_title": true,
+    "transition_duration": 0.3,
     "output": "final_output.mp4",
     "entries": [
-        { "text": "Video 1", "video": "video1.mp4" },
-        { "text": "Video 2 With Audio", "video": "video2.mp4", "audio": "audio.mp3" }
+        { "title": "Example Title", "video": "video1.mp4", "description": "Optional subtitle line" },
+        { "title": "Video 2 With Audio", "video": "video2.mp4", "audio": "audio.mp3" }
     ]
 }
 EOF
@@ -110,10 +122,17 @@ fi
 duration=$(jq -r '.title_duration' "$CONFIG")
 resolution=$(jq -r '.resolution' "$CONFIG")
 fps=$(jq -r '.fps' "$CONFIG")
-font_file=$(jq -r '.font_file' "$CONFIG")
-font_size=$(jq -r '.font_size' "$CONFIG")
+title_font_file=$(jq -r '.title.font_file' "$CONFIG")
+title_font_size=$(jq -r '.title.font_size' "$CONFIG")
+title_font_color=$(jq -r '.title.font_color // "white"' "$CONFIG")
+desc_font_file=$(jq -r '.description.font_file // .title.font_file' "$CONFIG")
+desc_font_size=$(jq -r '.description.font_size // 36' "$CONFIG")
+desc_font_color=$(jq -r '.description.font_color // "white"' "$CONFIG")
 blur_strength=$(jq -r '.blur_strength // 20' "$CONFIG")
 dim_amount=$(jq -r '.dim_amount // -0.3' "$CONFIG")
+transition_title_to_video=$(jq -r 'if has("transition_title_to_video") then .transition_title_to_video elif has("transition") then .transition else true end' "$CONFIG")
+transition_video_to_title=$(jq -r 'if has("transition_video_to_title") then .transition_video_to_title elif has("transition") then .transition else true end' "$CONFIG")
+transition_duration=$(jq -r '.transition_duration // 0.5' "$CONFIG")
 crf=$(jq -r '.crf' "$CONFIG")
 codec=$(jq -r '.codec' "$CONFIG")
 output=$(jq -r '.output' "$CONFIG")
@@ -139,7 +158,8 @@ concat_list="$workdir/concat_list.txt"
 > "$concat_list"
 
 for ((i = 0; i < entry_count; i++)); do
-    text=$(jq -r ".entries[$i].text" "$CONFIG")
+    title_text=$(jq -r ".entries[$i].title" "$CONFIG")
+    description_text=$(jq -r ".entries[$i].description // empty" "$CONFIG")
     video=$(jq -r ".entries[$i].video" "$CONFIG")
     audio=$(jq -r ".entries[$i].audio // empty" "$CONFIG")
 
@@ -159,24 +179,87 @@ for ((i = 0; i < entry_count; i++)); do
     # Split into separate lines ourselves and draw each one as its own
     # drawtext filter, rather than relying on ffmpeg to interpret a newline
     # character (that behaves inconsistently across ffmpeg builds/versions).
-    mapfile -t text_lines <<< "$text"
-    num_lines=${#text_lines[@]}
-    line_height=$(( font_size * 13 / 10 ))
-    total_height=$(( line_height * num_lines ))
+    # The title block and (if given) the description block are stacked
+    # vertically and the whole stack is centered together.
+    mapfile -t title_lines <<< "$title_text"
+    num_title_lines=${#title_lines[@]}
+    title_line_height=$(( title_font_size * 13 / 10 ))
+    title_block_height=$(( title_line_height * num_title_lines ))
+
+    num_desc_lines=0
+    desc_block_height=0
+    gap=0
+    if [[ -n "$description_text" ]]; then
+        mapfile -t desc_lines <<< "$description_text"
+        num_desc_lines=${#desc_lines[@]}
+        desc_line_height=$(( desc_font_size * 13 / 10 ))
+        desc_block_height=$(( desc_line_height * num_desc_lines ))
+        gap=$(( title_font_size / 2 ))
+    fi
+
+    total_height=$(( title_block_height + gap + desc_block_height ))
 
     drawtext_chain=""
-    for ((li = 0; li < num_lines; li++)); do
-        line_escaped=$(printf '%s' "${text_lines[$li]}" | sed "s/:/\\\\:/g; s/'/\\\\'/g")
-        y_offset=$(( li * line_height ))
-        drawtext_chain+=",drawtext=fontfile=${font_file}:text='${line_escaped}':fontcolor=white:fontsize=${font_size}:x=(w-text_w)/2:y=(h-${total_height})/2+${y_offset}"
+    for ((li = 0; li < num_title_lines; li++)); do
+        line_escaped=$(printf '%s' "${title_lines[$li]}" | sed "s/:/\\\\:/g; s/'/\\\\'/g")
+        y_offset=$(( li * title_line_height ))
+        drawtext_chain+=",drawtext=fontfile=${title_font_file}:text='${line_escaped}':fontcolor=${title_font_color}:fontsize=${title_font_size}:x=(w-text_w)/2:y=(h-${total_height})/2+${y_offset}"
     done
 
-    echo "[$((i + 1))/$entry_count] Title card: $text"
+    for ((li = 0; li < num_desc_lines; li++)); do
+        line_escaped=$(printf '%s' "${desc_lines[$li]}" | sed "s/:/\\\\:/g; s/'/\\\\'/g")
+        y_offset=$(( title_block_height + gap + li * desc_line_height ))
+        drawtext_chain+=",drawtext=fontfile=${desc_font_file}:text='${line_escaped}':fontcolor=${desc_font_color}:fontsize=${desc_font_size}:x=(w-text_w)/2:y=(h-${total_height})/2+${y_offset}"
+    done
+
+    # Fade directions are independent toggles:
+    #   transition_title_to_video: title card fades out / video fades in
+    #   transition_video_to_title: video fades out / next title fades in
+    # Each clip still stands alone (fades baked into that clip before the
+    # -c copy concat step), so concat still works exactly as before.
+    vid_dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$video")
+
+    title_fade_in_chain=""
+    title_fade_out_chain=""
+    video_fade_in_suffix=""
+    video_fade_out_suffix=""
+    audio_fade_in_suffix=""
+    audio_fade_out_suffix=""
+    af_filters=()
+
+    if [[ "$transition_video_to_title" == "true" ]]; then
+        title_fade_in_chain=",fade=t=in:st=0:d=${transition_duration}"
+    fi
+
+    if [[ "$transition_title_to_video" == "true" ]]; then
+        title_fade_start=$(awk -v d="$duration" -v t="$transition_duration" \
+            'BEGIN { fs = d - t; if (fs < 0) fs = 0; printf "%.3f", fs }')
+        title_fade_out_chain=",fade=t=out:st=${title_fade_start}:d=${transition_duration}"
+        video_fade_in_suffix=",fade=t=in:st=0:d=${transition_duration}"
+        audio_fade_in_suffix=",afade=t=in:st=0:d=${transition_duration}"
+        af_filters+=("afade=t=in:st=0:d=${transition_duration}")
+    fi
+
+    if [[ "$transition_video_to_title" == "true" ]]; then
+        video_fade_start=$(awk -v d="$vid_dur" -v t="$transition_duration" \
+            'BEGIN { fs = d - t; if (fs < 0) fs = 0; printf "%.3f", fs }')
+        video_fade_out_suffix=",fade=t=out:st=${video_fade_start}:d=${transition_duration}"
+        audio_fade_out_suffix=",afade=t=out:st=${video_fade_start}:d=${transition_duration}"
+        af_filters+=("afade=t=out:st=${video_fade_start}:d=${transition_duration}")
+    fi
+
+    af_args=()
+    if [[ ${#af_filters[@]} -gt 0 ]]; then
+        af_str=$(IFS=,; echo "${af_filters[*]}")
+        af_args=(-af "$af_str")
+    fi
+
+    echo "[$((i + 1))/$entry_count] Title card: $title_text"
     ffmpeg -y -hide_banner -loglevel error \
     -stream_loop -1 -i "$video" \
     -f lavfi -i "anullsrc=r=${audio_rate}:cl=stereo" \
     -t "$duration" \
-    -vf "scale=${res_colon}:force_original_aspect_ratio=increase,crop=${res_colon},boxblur=${blur_strength}:5,eq=brightness=${dim_amount},fps=${fps}${drawtext_chain}" \
+    -vf "scale=${res_colon}:force_original_aspect_ratio=increase,crop=${res_colon},boxblur=${blur_strength}:5,eq=brightness=${dim_amount},fps=${fps}${title_fade_in_chain}${drawtext_chain}${title_fade_out_chain}" \
     -map 0:v -map 1:a \
     -c:v libx264 -preset fast -c:a aac -shortest "$title_clip"
 
@@ -184,17 +267,17 @@ for ((i = 0; i < entry_count; i++)); do
         echo "[$((i + 1))/$entry_count] Normalizing: $video (audio replaced with: $audio)"
         # Match the audio's length to the video exactly: trim it if it's
         # longer, silence-pad it if it's shorter. Video length always wins.
-        vid_dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$video")
         ffmpeg -y -hide_banner -loglevel error \
         -i "$video" -i "$audio" \
-        -filter_complex "[0:v]scale=${res_colon}:force_original_aspect_ratio=decrease,pad=${res_colon}:(ow-iw)/2:(oh-ih)/2,fps=${fps}[vid];[1:a]atrim=0:${vid_dur},apad=whole_dur=${vid_dur},aformat=sample_rates=${audio_rate}:channel_layouts=stereo[aud]" \
+        -filter_complex "[0:v]scale=${res_colon}:force_original_aspect_ratio=decrease,pad=${res_colon}:(ow-iw)/2:(oh-ih)/2,fps=${fps}${video_fade_in_suffix}${video_fade_out_suffix}[vid];[1:a]atrim=0:${vid_dur},apad=whole_dur=${vid_dur},aformat=sample_rates=${audio_rate}:channel_layouts=stereo${audio_fade_in_suffix}${audio_fade_out_suffix}[aud]" \
         -map "[vid]" -map "[aud]" \
         -c:v libx264 -preset fast -c:a aac "$norm_clip"
     else
         echo "[$((i + 1))/$entry_count] Normalizing: $video"
         ffmpeg -y -hide_banner -loglevel error -i "$video" \
-        -vf "scale=${res_colon}:force_original_aspect_ratio=decrease,pad=${res_colon}:(ow-iw)/2:(oh-ih)/2,fps=${fps}" \
+        -vf "scale=${res_colon}:force_original_aspect_ratio=decrease,pad=${res_colon}:(ow-iw)/2:(oh-ih)/2,fps=${fps}${video_fade_in_suffix}${video_fade_out_suffix}" \
         -ar "$audio_rate" -ac "$audio_channels" \
+        "${af_args[@]}" \
         -c:v libx264 -preset fast -c:a aac "$norm_clip"
     fi
 

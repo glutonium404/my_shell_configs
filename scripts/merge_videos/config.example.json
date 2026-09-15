@@ -2,15 +2,26 @@
     "title_duration": 3,
     "resolution": "1920x1080",
     "fps": 30,
-    "font_file": "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    "font_size": 60,
+    "title": {
+        "font_file": "/usr/share/fonts/truetype/lato/Lato-Bold.ttf",
+        "font_size": 60,
+        "font_color": "#afafff"
+    },
+    "description": {
+        "font_file": "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "font_size": 36,
+        "font_color": "white"
+    },
     "crf": 28,
     "codec": "libx265",
     "blur_strength": 25,
     "dim_amount": -0.05,
+    "transition_title_to_video": true,
+    "transition_video_to_title": true,
+    "transition_duration": 0.3,
     "output": "final_output.mp4",
     "entries": [
-        { "text": "Video 1", "video": "video1.mp4" },
-        { "text": "Video 2 With Audio", "video": "video2.mp4", "audio": "audio.mp3" }
+        { "title": "Example Title", "video": "video1.mp4", "description": "Optional subtitle line" },
+        { "title": "Video 2 With Audio", "video": "video2.mp4", "audio": "audio.mp3" }
     ]
 }
